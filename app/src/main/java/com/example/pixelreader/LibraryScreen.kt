@@ -1,5 +1,6 @@
 package com.example.pixelreader
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,18 +10,24 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +57,8 @@ fun LibraryScreen(books: List<Book>) {
     var isGridView by remember { mutableStateOf(true) }
     var selectedCollection by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+
+    var selectedBookForPreview by remember { mutableStateOf<Book?>(null) }    // хранит выбранную книгу
 
     // Состояния для сортировки
     var showSortSheet by remember { mutableStateOf(false) }
@@ -91,7 +100,7 @@ fun LibraryScreen(books: List<Book>) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(books) { book -> BookGridItem(book = book, onClick = {}) }
+                items(books) { book -> BookGridItem(book = book, onClick = { selectedBookForPreview = book }) }
             }
         } else {
             LazyColumn(
@@ -99,12 +108,13 @@ fun LibraryScreen(books: List<Book>) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                items(books) { book -> BookListItem(book = book, onClick = {}) }
+                // ИСПРАВЛЕНО ЗДЕСЬ: добавлена закрывающая скобка '}'
+                items(books) { book -> BookListItem(book = book, onClick = { selectedBookForPreview = book }) }
             }
         }
     }
 
-    // ВЫЗОВ BOTTOM SHEET
+    // ВЫЗОВ BOTTOM SHEET СОРТИРОВКИ
     if (showSortSheet) {
         SortBottomSheet(
             onDismiss = { showSortSheet = false },
@@ -112,6 +122,23 @@ fun LibraryScreen(books: List<Book>) {
             onOptionSelected = { selectedSortOption = it },
             isAscending = isSortAscending,
             onToggleDirection = { isSortAscending = !isSortAscending }
+        )
+    }
+
+    // ВЫЗОВ BOTTOM SHEET ПРЕДПРОСМОТРА
+    selectedBookForPreview?.let { book ->
+        BookPreviewBottomSheet(
+            book = book,
+            availableCollections = collections,
+            onDismiss = { selectedBookForPreview = null },
+            onReadClick = {
+                // TODO: Позже добавим переход на экран читалки
+                selectedBookForPreview = null
+            },
+            onDeleteClick = {
+                // TODO: Позже добавим логику удаления книги
+                selectedBookForPreview = null
+            }
         )
     }
 }
@@ -139,6 +166,7 @@ fun SortBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
         ) {
             Text(
@@ -424,7 +452,7 @@ fun LibraryButtonGroup(
         modifier = Modifier.height(48.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-// 1. Кнопка сортировки (левая, округлая слева)
+        // 1. Кнопка сортировки (левая, округлая слева)
         ButtonGroupItem(
             icon = Icons.Filled.Tune,
             isSelected = false,
@@ -487,6 +515,163 @@ fun ButtonGroupItem(
                 tint = if (isSelected) activeContentColor else contentColor,
                 modifier = Modifier.size(24.dp)
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BookPreviewBottomSheet(
+    book: Book,
+    availableCollections: List<String>,
+    onDismiss: () -> Unit,
+    onReadClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Состояние для выпадающего списка сборников
+    var expanded by remember { mutableStateOf(false) }
+    var selectedCollection by remember { mutableStateOf(book.collectionName ?: availableCollections.firstOrNull() ?: "") }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+
+            // 1. Шапка: Обложка, Название, Автор, Смена обложки
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Плейсхолдер обложки
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.size(width = 100.dp, height = 150.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("Обложка", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Column {
+                    Text(
+                        text = book.title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = book.author,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                    )
+
+                    FilledTonalButton(onClick = { /* Смена обложки */ }) {
+                        Icon(imageVector = Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Изменить обложку")
+                    }
+                }
+            }
+
+            // 2. Выбор сборника (Exposed Dropdown Menu)
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = it }
+            ) {
+                OutlinedTextField(
+                    value = selectedCollection,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Сборник книг") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    availableCollections.forEach { selectionOption ->
+                        DropdownMenuItem(
+                            text = { Text(selectionOption) },
+                            onClick = {
+                                selectedCollection = selectionOption
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // 3. Оценка (Звезды)
+            Column {
+                Text(
+                    text = "ОЦЕНИТЬ КНИГУ (ДЛЯ СЕБЯ)",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(5) { index ->
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = "Оценка ${index + 1}",
+                            tint = if (index < book.rating) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(36.dp).clickable { /* Обновить рейтинг */ }
+                        )
+                    }
+                }
+            }
+
+            // 4. Описание (Синопсис)
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest, // Контрастный контейнер
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Роман о бедном студенте Родионе Раскольникове, решившемся на страшное убийство ради проверки своей теории о «право имеющих» людях.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // 5. Кнопки действий
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onDeleteClick,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(imageVector = Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Удалить")
+                }
+
+                Button(
+                    onClick = onReadClick,
+                    modifier = Modifier.weight(1f).padding(start = 16.dp),
+                    contentPadding = PaddingValues(vertical = 14.dp)
+                ) {
+                    Icon(imageVector = Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Читать")
+                }
+            }
         }
     }
 }

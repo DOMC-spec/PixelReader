@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.GridView
@@ -32,44 +34,55 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+// ПЕРЕЧИСЛЕНИЕ ВАРИАНТОВ СОРТИРОВКИ
+enum class SortOption(val title: String) {
+    DATE_ADDED("Дата добавления"),
+    TITLE("Название"),
+    AUTHOR("Автор"),
+    ALBUM("Сборник"),
+    RATING("Рейтинг"),
+    READING_PROGRESS("Прогресс чтения")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(books: List<Book>) {
     var isGridView by remember { mutableStateOf(true) }
     var selectedCollection by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // Состояния для сортировки
+    var showSortSheet by remember { mutableStateOf(false) }
+    var selectedSortOption by remember { mutableStateOf(SortOption.DATE_ADDED) }
+    var isSortAscending by remember { mutableStateOf(false) }
+
     val collections = listOf("Классическая литература", "Научная фантастика", "Философия")
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // 1. Шапка: Заголовок и кнопка темы
         LibraryHeader()
 
-        // 2. Строка поиска
         LibrarySearchBar(
             query = searchQuery,
             onQueryChange = { searchQuery = it }
         )
 
-        // 3. Сборники
         CollectionFilters(
             collections = collections,
             selectedCollection = selectedCollection,
             onCollectionSelect = { selectedCollection = it }
         )
 
-        // 4. Панель управления: Случайная книга и Button Group
         LibraryControls(
             isGridView = isGridView,
             onGridClick = { isGridView = true },
             onListClick = { isGridView = false },
-            onRandomClick = { /* TODO: Случайная книга */ },
-            onSortClick = { /* TODO: Сортировка */ }
+            onRandomClick = { /* Случайная книга */ },
+            onSortClick = { showSortSheet = true }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 5. Контейнер с книгами
         if (isGridView) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
@@ -90,8 +103,161 @@ fun LibraryScreen(books: List<Book>) {
             }
         }
     }
+
+    // ВЫЗОВ BOTTOM SHEET
+    if (showSortSheet) {
+        SortBottomSheet(
+            onDismiss = { showSortSheet = false },
+            selectedOption = selectedSortOption,
+            onOptionSelected = { selectedSortOption = it },
+            isAscending = isSortAscending,
+            onToggleDirection = { isSortAscending = !isSortAscending }
+        )
+    }
 }
 
+// КОМПОНЕНТЫ ШТОРКИ СОРТИРОВКИ (BOTTOM SHEET)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SortBottomSheet(
+    onDismiss: () -> Unit,
+    selectedOption: SortOption,
+    onOptionSelected: (SortOption) -> Unit,
+    isAscending: Boolean,
+    onToggleDirection: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 32.dp)
+        ) {
+            Text(
+                text = "Сортировать по",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 16.dp, start = 8.dp)
+            )
+
+            OrderToggleButton(isAscending = isAscending, onClick = onToggleDirection)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SortOption.entries.forEach { option ->
+                    SortOptionItem(
+                        text = option.title,
+                        isSelected = selectedOption == option,
+                        onClick = { onOptionSelected(option) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderToggleButton(isAscending: Boolean, onClick: () -> Unit) {
+    val containerColor = MaterialTheme.colorScheme.primaryContainer
+    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(contentColor.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isAscending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                    contentDescription = null,
+                    tint = contentColor
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = "Порядок",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = contentColor.copy(alpha = 0.8f)
+                )
+                Text(
+                    text = if (isAscending) "По возрастанию" else "По убыванию",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SortOptionItem(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    val bgColor = if (isSelected) {
+        MaterialTheme.colorScheme.secondaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    }
+
+    val textColor = if (isSelected) {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = bgColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = textColor
+            )
+            RadioButton(
+                selected = isSelected,
+                onClick = null,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = MaterialTheme.colorScheme.primary,
+                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+}
+
+// КОМПОНЕНТЫ ГЛАВНОГО ЭКРАНА
 @Composable
 fun LibraryHeader() {
     Row(
@@ -107,7 +273,6 @@ fun LibraryHeader() {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
-
         FilledIconButton(
             onClick = { /* TODO: Смена темы */ },
             modifier = Modifier.size(48.dp),
@@ -121,6 +286,7 @@ fun LibraryHeader() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibrarySearchBar(query: String, onQueryChange: (String) -> Unit) {
     OutlinedTextField(
@@ -128,7 +294,8 @@ fun LibrarySearchBar(query: String, onQueryChange: (String) -> Unit) {
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), CircleShape),
         placeholder = { Text("Поиск книг...") },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
@@ -140,10 +307,8 @@ fun LibrarySearchBar(query: String, onQueryChange: (String) -> Unit) {
         },
         shape = CircleShape,
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            focusedContainerColor = MaterialTheme.colorScheme.surface
+            unfocusedBorderColor = Color.Transparent,
+            focusedBorderColor = MaterialTheme.colorScheme.primary
         ),
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)
@@ -194,6 +359,7 @@ fun FilterPill(text: String, isSelected: Boolean, onClick: () -> Unit) {
             color = textColor,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp)
         )
     }
@@ -242,7 +408,6 @@ fun LibraryControls(
     }
 }
 
-// Специальный компонент для создания слитной группы кнопок (Expressive Button Group)
 @Composable
 fun LibraryButtonGroup(
     isGridView: Boolean,

@@ -8,5 +8,6 @@ data class Book(
     val coverUrl: String,
     val progress: Int,
     val rating: Int,
+    val isActive: Boolean = false,
     val collectionName: String? = null
 )

@@ -108,7 +108,6 @@ fun LibraryScreen(books: List<Book>) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                // ИСПРАВЛЕНО ЗДЕСЬ: добавлена закрывающая скобка '}'
                 items(books) { book -> BookListItem(book = book, onClick = { selectedBookForPreview = book }) }
             }
         }
@@ -132,11 +131,11 @@ fun LibraryScreen(books: List<Book>) {
             availableCollections = collections,
             onDismiss = { selectedBookForPreview = null },
             onReadClick = {
-                // TODO: Позже добавим переход на экран читалки
+                // TODO: Позже добавлю переход на экран читалки
                 selectedBookForPreview = null
             },
             onDeleteClick = {
-                // TODO: Позже добавим логику удаления книги
+                // TODO: Позже добавлю логику удаления книги
                 selectedBookForPreview = null
             }
         )
@@ -581,7 +580,7 @@ fun BookPreviewBottomSheet(
                 }
             }
 
-            // 2. Выбор сборника (Exposed Dropdown Menu)
+            // 2. Выбор сборника
             ExposedDropdownMenuBox(
                 expanded = expanded,
                 onExpandedChange = { expanded = it }
@@ -612,7 +611,7 @@ fun BookPreviewBottomSheet(
                 }
             }
 
-            // 3. Оценка (Звезды)
+            // 3. Оценка
             Column {
                 Text(
                     text = "ОЦЕНИТЬ КНИГУ (ДЛЯ СЕБЯ)",
@@ -632,10 +631,10 @@ fun BookPreviewBottomSheet(
                 }
             }
 
-            // 4. Описание (Синопсис)
+            // 4. Описание
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHighest, // Контрастный контейнер
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
